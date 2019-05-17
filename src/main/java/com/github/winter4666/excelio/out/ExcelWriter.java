@@ -13,16 +13,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
-import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.WorkbookUtil;
@@ -61,6 +57,11 @@ public class ExcelWriter {
 	private int currentColumnNum;
 	
 	/**
+	 * ExcelWriter的默认CellStyle，通过createCellStyle方法创建的CellStyle会默认clone该样式，也是不指定CellStyle的时候程序默认使用的样式。
+	 */
+	private CellStyle defaultCellStyle;
+	
+	/**
 	 * 记录当前sheet写到的最大列
 	 */
 	private int currentSheetMaxColumn;
@@ -72,39 +73,10 @@ public class ExcelWriter {
 	private Map<CellStyle, CellStyle> dateCellStyleTemp = new HashMap<>();
 	
 	/**
-	 * 字体大小
-	 */
-	Short fontSize;
-	
-	/**
-	 * 字体名字
-	 */
-	String fontName;
-	
-	/**
 	 * 日期格式
 	 */
 	String dateFormat;
 	
-	/**
-	 * 单元格竖直对齐方式
-	 */
-	HorizontalAlignment cellHorizontalAlignment;
-	
-	/**
-	 * 单元格水平对齐方式
-	 */
-	VerticalAlignment cellVerticalAlignment;
-	
-	/**
-	 * 单元格边界
-	 */
-	BorderStyle cellBorder;
-	
-	/**
-	 * 单元格边界颜色
-	 */
-	IndexedColors cellBorderColor;
 	
 	/**
 	 * 根据内容自动调整excel列宽度
@@ -128,10 +100,15 @@ public class ExcelWriter {
 		currentColumnNum = 0;
 		creationHelper = workbook.getCreationHelper();
 		
-		fontName = "宋体";
 		dateFormat = "yyyy-MM-dd HH:mm:ss";
 		autoSizeColumn = false;
 		ignoreGridHeader = false;
+		
+		defaultCellStyle = workbook.createCellStyle();
+		Font font = workbook.createFont();
+		font.setFontName("宋体");
+		defaultCellStyle.setFont(font);
+		defaultCellStyle.setWrapText(true);
 	}
 	
 	/**
@@ -149,24 +126,13 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public CellStyle createCellStyle() {
-		CellStyle cellStyle = workbook.createCellStyle();
-		Font font = createFont();
-		cellStyle.setFont(font);
-		if(cellHorizontalAlignment != null) cellStyle.setAlignment(cellHorizontalAlignment);
-		if(cellVerticalAlignment != null) cellStyle.setVerticalAlignment(cellVerticalAlignment);
-		if(cellBorder != null) {
-			cellStyle.setBorderBottom(cellBorder);
-		    cellStyle.setBorderLeft(cellBorder);
-		    cellStyle.setBorderRight(cellBorder);
-		    cellStyle.setBorderTop(cellBorder);
+		if(defaultCellStyle != null) {
+			CellStyle cellStyle = workbook.createCellStyle();
+			cellStyle.cloneStyleFrom(defaultCellStyle);
+			return cellStyle;
+		} else {
+			return workbook.createCellStyle();
 		}
-		if(cellBorderColor != null) {
-			cellStyle.setBottomBorderColor(cellBorderColor.getIndex());
-			cellStyle.setLeftBorderColor(cellBorderColor.getIndex());
-			cellStyle.setRightBorderColor(cellBorderColor.getIndex());
-			cellStyle.setTopBorderColor(cellBorderColor.getIndex());
-		}
-		return cellStyle;
 	}
 	
 	/**
@@ -174,12 +140,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public Font createFont() {
-		Font font = workbook.createFont();
-		font.setFontName(fontName);
-		if(fontSize != null) {
-			font.setFontHeightInPoints(fontSize);
-		}
-		return font;
+		return workbook.createFont();
 	}
 	
 	/**
@@ -207,6 +168,16 @@ public class ExcelWriter {
 	 */
 	public CreationHelper getCreationHelper() {
 		return creationHelper;
+	}
+	
+	/**
+	 * 设置ExcelWriter的默认CellStyle，通过createCellStyle方法创建的CellStyle会默认clone该样式，也是不指定CellStyle的时候程序默认使用的样式。
+	 * @param cellStyle
+	 * @return
+	 */
+	public ExcelWriter cellStyle(CellStyle cellStyle) {
+		defaultCellStyle = cellStyle;
+		return this;
 	}
 	
 	/**
