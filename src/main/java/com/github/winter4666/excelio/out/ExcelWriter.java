@@ -194,48 +194,19 @@ public class ExcelWriter {
 	}
 	
 	/**
-	 * 扫描从firstRow到lastRow的所有行，合并相邻的相同行
-	 * @param firstRow 扫描起始行
-	 * @param lastRow 扫描结束行
-	 * @param firstCol 合并起始列
-	 * @param lastCol 合并结束列
-	 * @param flagCol 标志列，若两行标志列的value相同，则判定两行为相同行
-	 * @param clearFlagCol 是否在合并过程中，清除标志列
-	 */
-	public void mergeTheSameRows(int firstRow,int lastRow,int firstCol,int lastCol,int flagCol,boolean clearFlagCol) {
-        int mergeFirstRowCursor = firstRow - 1;
-        String frontRowFlagColValue = null;
-        int i = firstRow;
-        for (; i <= lastRow; i++) {
-            Row row = currentSheet.getRow(i);
-            String currentRowFlagColValue = row.getCell(flagCol).getStringCellValue();
-            if(clearFlagCol) {
-	            row.getCell(flagCol).setCellStyle(null);
-	            row.getCell(flagCol).setCellValue((String) null);
-            }
-            if (!currentRowFlagColValue.equals(frontRowFlagColValue)) {
-                if (i - mergeFirstRowCursor > 1) {
-                    for (int colNum = firstCol; colNum <= lastCol; colNum++) {
-                        mergeCells(mergeFirstRowCursor, i - 1, colNum, colNum);
-                    }
-                }
-                mergeFirstRowCursor = i;
-                frontRowFlagColValue = currentRowFlagColValue;
-            }
-        }
-        if (i - mergeFirstRowCursor > 1) {
-            for (int colNum = firstCol; colNum <= lastCol; colNum++) {
-                mergeCells(mergeFirstRowCursor, i - 1, colNum, colNum);
-            }
-        }
-	}
-	
-	/**
 	 * 得到当前正在写的sheet
 	 * @return
 	 */
 	public Sheet getCurrentSheet() {
 		return currentSheet;
+	}
+	
+	/**
+	 * 得到creationHelper
+	 * @return
+	 */
+	public CreationHelper getCreationHelper() {
+		return creationHelper;
 	}
 	
 	/**
@@ -335,7 +306,7 @@ public class ExcelWriter {
 			
 			//设置cell样式
 			if(cellStyle != null) {
-				if(data instanceof Date) {
+				if(data instanceof Date && cellStyle.getDataFormat() == 0) {
 					cell.setCellStyle(getDateCellStyle(cellStyle));
 				} else {
 					cell.setCellStyle(cellStyle);
@@ -418,7 +389,18 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data) {
-		return writeGrid(headers, data, createCellStyle(), createCellStyle());
+		return writeGrid(headers, data, new GridCellStyle() {
+			
+			@Override
+			public CellStyle getHeaderCellStyle(ExcelWriter excelWriter, String fieldName) {
+				return createCellStyle();
+			}
+			
+			@Override
+			public CellStyle getDataCellStyle(ExcelWriter excelWriter, String fieldName, int gridRowNum, Object fieldValue) {
+				return createCellStyle();
+			}
+		});
 	}
 	
 	
@@ -426,17 +408,16 @@ public class ExcelWriter {
 	 * 在Excel中写一个表格，自定义样式
 	 * @param headers 表头
 	 * @param data 数据
-	 * @param titleCellStyle 标题样式
-	 * @param dataCellStyle 数据样式
+	 * @param gridCellStyle 表格样式
 	 */
 	@SuppressWarnings("unchecked")
-	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data,CellStyle titleCellStyle,CellStyle dataCellStyle) {
+	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data,GridCellStyle gridCellStyle) {
 		int offset = currentColumnNum - 0;
 		
 		//写表头
 		if(!ignoreGridHeader) {
 			for(GridHeader header : headers) {
-				write(header.getLabel(), header.getCellNum(), titleCellStyle);
+				write(header.getLabel(), header.getCellNum(), gridCellStyle.getHeaderCellStyle(this, header.getFieldName()));
 			}
 			nextLine();
 		}
@@ -467,7 +448,7 @@ public class ExcelWriter {
 				if(header.getFieldValueConverter() != null) {
 					dataCellValue = header.getFieldValueConverter().convert(dataCellValue,rowData);
 				}
-				write(dataCellValue, header.getCellNum(), dataCellStyle);
+				write(dataCellValue, header.getCellNum(), gridCellStyle.getDataCellStyle(this, header.getFieldName(), i, dataCellValue));
 			}
 			if(i != data.size() - 1) {
 				nextLine();
@@ -600,12 +581,37 @@ public class ExcelWriter {
 	}
 	
 	/**
-	 * Excel版本
+	 * Excel格式
 	 * @author wutian
 	 */
 	public enum ExcelFormat {
 		HSSF,
 		XSSF
+	}
+	
+	/**
+	 * 表格样式
+	 * @author wutian
+	 */
+	public interface GridCellStyle {
+		
+		/**
+		 * 得到表头样式
+		 * @param excelWriter excelWriter
+		 * @param fieldName 字段名称
+		 * @return
+		 */
+		CellStyle getHeaderCellStyle(ExcelWriter excelWriter,String fieldName);
+		
+		/**
+		 * 得到表格数据样式
+		 * @param excelWriter excelWriter
+		 * @param fieldName 字段名称
+		 * @param currentRowNum 所在表格行数，从0开始
+		 * @param fieldValue 字段值
+		 * @return
+		 */
+		CellStyle getDataCellStyle(ExcelWriter excelWriter,String fieldName,int gridRowNum,Object fieldValue);
 	}
 
 }

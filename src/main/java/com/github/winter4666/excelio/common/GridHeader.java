@@ -84,10 +84,10 @@ public class GridHeader {
 	public interface FieldValueConverter {
 		
 		/**
-		 * 传入字段原来的值，返回转换后的值作为字段新的值
-		 * @param fieldValue
-		 * @param rowData
-		 * @return
+		 * 传入字段原来的值，返回处理过的值作为写到excel的值
+		 * @param fieldValue 字段初始值
+		 * @param rowData 整个数据对象
+		 * @return 处理过
 		 */
 		Object convert(Object fieldValue,Object rowData);
 	}
