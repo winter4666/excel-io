@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -65,6 +66,10 @@ public class ExcelWriter {
 	private int currentSheetMaxColumn;
 	
 	private CreationHelper creationHelper;
+	
+	private boolean ignoreGridHeader;
+	
+	private Map<CellStyle, CellStyle> dateCellStyleTemp = new HashMap<>();
 	
 	/**
 	 * 字体大小
@@ -126,6 +131,7 @@ public class ExcelWriter {
 		fontName = "宋体";
 		dateFormat = "yyyy-MM-dd HH:mm:ss";
 		autoSizeColumn = false;
+		ignoreGridHeader = false;
 	}
 	
 	/**
@@ -279,6 +285,26 @@ public class ExcelWriter {
 		setColumnWidth(currentColumnNum, width);
 		return this;
 	}
+	
+	/**
+	 * 写表格的时候忽略表头
+	 * @param ignoreGridHeader
+	 */
+	public ExcelWriter ignoreGridHeader(boolean ignoreGridHeader) {
+		this.ignoreGridHeader = ignoreGridHeader;
+		return this;
+	}
+	
+	private CellStyle getDateCellStyle(CellStyle cellStyle) {
+		CellStyle dateCellStyle = dateCellStyleTemp.get(cellStyle);
+		if(dateCellStyle == null) {
+			dateCellStyle = workbook.createCellStyle();
+			dateCellStyle.cloneStyleFrom(cellStyle);
+			dateCellStyle.setDataFormat(creationHelper.createDataFormat().getFormat(dateFormat));
+			dateCellStyleTemp.put(cellStyle, dateCellStyle);
+		}
+		return dateCellStyle;
+	}
 
 	/**
 	 * 在Excel中写一条数据，自定义样式
@@ -309,7 +335,11 @@ public class ExcelWriter {
 			
 			//设置cell样式
 			if(cellStyle != null) {
-				cell.setCellStyle(cellStyle);
+				if(data instanceof Date) {
+					cell.setCellStyle(getDateCellStyle(cellStyle));
+				} else {
+					cell.setCellStyle(cellStyle);
+				}
 			}
 			currentColumnNum++;
 			if(currentColumnNum > currentSheetMaxColumn) {
@@ -347,15 +377,7 @@ public class ExcelWriter {
 	 */
 	public ExcelWriter write(Object data,int horizontalCellNum,int verticalCellNum) {
 		CellStyle cellStyle = createCellStyle();
-		if(data instanceof Date) {
-			CellStyle dateCellStyle = workbook.createCellStyle();
-			dateCellStyle.cloneStyleFrom(cellStyle);
-			dateCellStyle.setDataFormat(creationHelper.createDataFormat().getFormat(dateFormat));
-			write(data, horizontalCellNum,verticalCellNum, dateCellStyle);
-		} else {
-			write(data, horizontalCellNum,verticalCellNum, cellStyle);
-		}
-		
+		write(data, horizontalCellNum,verticalCellNum, cellStyle);
 		return this;
 	}
 	
@@ -409,17 +431,15 @@ public class ExcelWriter {
 	 */
 	@SuppressWarnings("unchecked")
 	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data,CellStyle titleCellStyle,CellStyle dataCellStyle) {
-		//以dataCellStyle为基础新建一个日期样式，备用
-		CellStyle dateCellStyle = workbook.createCellStyle();
-		dateCellStyle.cloneStyleFrom(dataCellStyle);
-		dateCellStyle.setDataFormat(creationHelper.createDataFormat().getFormat(dateFormat));
+		int offset = currentColumnNum - 0;
 		
 		//写表头
-		int offset = currentColumnNum - 0;
-		for(GridHeader header : headers) {
-			write(header.getLabel(), header.getCellNum(), titleCellStyle);
+		if(!ignoreGridHeader) {
+			for(GridHeader header : headers) {
+				write(header.getLabel(), header.getCellNum(), titleCellStyle);
+			}
+			nextLine();
 		}
-		nextLine();
 		if(data == null) {
 			return this;
 		}
@@ -444,18 +464,10 @@ public class ExcelWriter {
 						throw new RuntimeException("get value of " + header.getFieldName() + "error", e);
 					}
 				}
-				if(header.getDictionary() != null) {
-					dataCellValue = header.getDictionary().get(dataCellValue);
-				}
 				if(header.getFieldValueConverter() != null) {
-					dataCellValue = header.getFieldValueConverter().convert(dataCellValue);
+					dataCellValue = header.getFieldValueConverter().convert(dataCellValue,rowData);
 				}
-				
-				if(dataCellValue instanceof Date) {
-					write(dataCellValue, header.getCellNum(), dateCellStyle);
-				} else {
-					write(dataCellValue, header.getCellNum(), dataCellStyle);
-				}
+				write(dataCellValue, header.getCellNum(), dataCellStyle);
 			}
 			if(i != data.size() - 1) {
 				nextLine();
