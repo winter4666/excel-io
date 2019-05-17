@@ -286,38 +286,42 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter write(Object data,int horizontalCellNum,int verticalCellNum,CellStyle cellStyle) {
+		//处理日期格式
+		if(cellStyle != null && data instanceof Date && cellStyle.getDataFormat() == 0) {
+			cellStyle = getDateCellStyle(cellStyle);
+		}
+		
+		//添加横向单元格
+		boolean setValue = false;
 		for(int i = 0;i < horizontalCellNum;i++) {
 			Cell cell = currentRow.createCell(currentColumnNum);
 			
 			//设置cell值
-			if(data != null) {
-				if(data instanceof String) {
-					cell.setCellValue((String)data);
-				} else if(data instanceof Number) {
-					cell.setCellValue(Double.valueOf(data.toString()));
-				} else if(data instanceof Date) {
-					cell.setCellValue((Date)data);
+			if(!setValue) {
+				if(data != null) {
+					if(data instanceof String) {
+						cell.setCellValue((String)data);
+					} else if(data instanceof Number) {
+						cell.setCellValue(Double.valueOf(data.toString()));
+					} else if(data instanceof Date) {
+						cell.setCellValue((Date)data);
+					} else {
+						cell.setCellValue(data.toString());
+					}
 				} else {
-					cell.setCellValue(data.toString());
+					cell.setBlank();
 				}
-			} else {
-				cell.setBlank();
+				setValue = true;
 			}
+			cell.setCellStyle(cellStyle);
 			
-			//设置cell样式
-			if(cellStyle != null) {
-				if(data instanceof Date && cellStyle.getDataFormat() == 0) {
-					cell.setCellStyle(getDateCellStyle(cellStyle));
-				} else {
-					cell.setCellStyle(cellStyle);
-				}
-			}
 			currentColumnNum++;
 			if(currentColumnNum > currentSheetMaxColumn) {
 				currentSheetMaxColumn = currentColumnNum;
 			}
 		}
 		
+		//添加纵向单元格
 		for(int i = 1;i < verticalCellNum;i++) {
 			Row row = null;
 			if(currentSheet.getRow(currentRowNum + i) != null) {
@@ -327,12 +331,11 @@ public class ExcelWriter {
 			}
 			for(int j = 0;j < horizontalCellNum;j++) {
 				Cell cell = row.createCell(currentColumnNum - horizontalCellNum + j);
-				if(cellStyle != null) {
-					cell.setCellStyle(cellStyle);
-				} 
+				cell.setCellStyle(cellStyle);
 			}
 		}
 		
+		//合并
 		if(horizontalCellNum > 1 || verticalCellNum > 1) {
 			currentSheet.addMergedRegion(new CellRangeAddress(currentRowNum, currentRowNum + verticalCellNum - 1, currentColumnNum - horizontalCellNum, currentColumnNum -1));
 		}
