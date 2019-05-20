@@ -9,8 +9,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
@@ -22,6 +24,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.WorkbookUtil;
+import org.apache.poi.xssf.streaming.SXSSFSheet;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.github.winter4666.excelio.common.GridHeader;
@@ -33,6 +37,8 @@ import com.github.winter4666.excelio.common.GridHeader;
  * @author wutian
  */
 public class ExcelWriter {
+	
+	private ExcelFormat excelFormat;
 	
 	private Workbook workbook;
 	
@@ -62,9 +68,14 @@ public class ExcelWriter {
 	private CellStyle defaultCellStyle;
 	
 	/**
-	 * 记录当前sheet写到的最大列
+	 * 日期格式
 	 */
-	private int currentSheetMaxColumn;
+	private String dateFormat;
+	
+	/**
+	 * 需要自动调整列宽度的ColumnIndex
+	 */
+	private Set<Integer> autoSizeColumnIndexes;
 	
 	private CreationHelper creationHelper;
 	
@@ -73,22 +84,41 @@ public class ExcelWriter {
 	private Map<CellStyle, CellStyle> dateCellStyleTemp = new HashMap<>();
 	
 	/**
-	 * 日期格式
-	 */
-	String dateFormat;
-	
-	
-	/**
 	 * 根据内容自动调整excel列宽度
 	 */
-	boolean autoSizeColumn;
+	private boolean autoSizeColumn;
 	
-	ExcelWriter(ExcelFormat excelFormat,String sheetName) {
-		if(excelFormat == ExcelFormat.XSSF) {
-			workbook = new XSSFWorkbook();
-		} else {
+	ExcelWriter(ExcelFormat excelFormat,Boolean autoSizeColumn,Integer rowAccessWindowSize) {
+		if(excelFormat == null) excelFormat = ExcelFormat.XSSF;
+		this.excelFormat = excelFormat;
+		if(excelFormat == ExcelFormat.HSSF) {
 			workbook = new HSSFWorkbook();
+		} else if(excelFormat == ExcelFormat.SXSSF) {
+			if(rowAccessWindowSize == null) {
+				workbook = new SXSSFWorkbook();
+			} else {
+				workbook = new SXSSFWorkbook(rowAccessWindowSize);
+			}
+		} else {
+			workbook = new XSSFWorkbook();
 		}
+		
+		if(autoSizeColumn == null) autoSizeColumn = false;
+		this.autoSizeColumn = autoSizeColumn;
+		
+		creationHelper = workbook.getCreationHelper();
+		
+		dateFormat = "yyyy-MM-dd HH:mm:ss";
+		ignoreGridHeader = false;
+		
+		defaultCellStyle = workbook.createCellStyle();
+		Font font = workbook.createFont();
+		font.setFontName("宋体");
+		defaultCellStyle.setFont(font);
+		defaultCellStyle.setWrapText(true);
+	}
+	
+	void initSheet(String sheetName) {
 		if(sheetName != null) {
 			sheetName = WorkbookUtil.createSafeSheetName(sheetName);
 			currentSheet = workbook.createSheet(sheetName);
@@ -98,17 +128,11 @@ public class ExcelWriter {
 		currentRowNum = 0;
 		currentRow = currentSheet.createRow(currentRowNum);
 		currentColumnNum = 0;
-		creationHelper = workbook.getCreationHelper();
 		
-		dateFormat = "yyyy-MM-dd HH:mm:ss";
-		autoSizeColumn = false;
-		ignoreGridHeader = false;
-		
-		defaultCellStyle = workbook.createCellStyle();
-		Font font = workbook.createFont();
-		font.setFontName("宋体");
-		defaultCellStyle.setFont(font);
-		defaultCellStyle.setWrapText(true);
+		autoSizeColumnIndexes = new HashSet<>();
+		if(autoSizeColumn && excelFormat == ExcelFormat.SXSSF) {
+			((SXSSFSheet)currentSheet).trackAllColumnsForAutoSizing();
+		}
 	}
 	
 	/**
@@ -171,12 +195,22 @@ public class ExcelWriter {
 	}
 	
 	/**
+	 * 设置日期格式，默认yyyy-MM-dd HH:mm:ss
+	 * @param dateFormat
+	 */
+	public ExcelWriter setDateFormat(String dateFormat) {
+		this.dateFormat = dateFormat;
+		return this;
+	}
+	
+	/**
 	 * 设置ExcelWriter的默认CellStyle，通过createCellStyle方法创建的CellStyle会默认clone该样式，也是不指定CellStyle的时候程序默认使用的样式。
 	 * @param cellStyle
 	 * @return
 	 */
 	public ExcelWriter cellStyle(CellStyle cellStyle) {
-		defaultCellStyle = cellStyle;
+		defaultCellStyle = workbook.createCellStyle();
+		defaultCellStyle.cloneStyleFrom(cellStyle);
 		return this;
 	}
 	
@@ -287,9 +321,7 @@ public class ExcelWriter {
 			cell.setCellStyle(cellStyle);
 			
 			currentColumnNum++;
-			if(currentColumnNum > currentSheetMaxColumn) {
-				currentSheetMaxColumn = currentColumnNum;
-			}
+			detectAutoSizeColumnIndexes();
 		}
 		
 		//添加纵向单元格
@@ -321,8 +353,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter write(Object data,int horizontalCellNum,int verticalCellNum) {
-		CellStyle cellStyle = createCellStyle();
-		write(data, horizontalCellNum,verticalCellNum, cellStyle);
+		write(data, horizontalCellNum,verticalCellNum, defaultCellStyle);
 		return this;
 	}
 	
@@ -367,13 +398,14 @@ public class ExcelWriter {
 			
 			@Override
 			public CellStyle getHeaderCellStyle(ExcelWriter excelWriter, String fieldName) {
-				return createCellStyle();
+				return defaultCellStyle;
 			}
 			
 			@Override
 			public CellStyle getDataCellStyle(ExcelWriter excelWriter, String fieldName, int gridRowNum, Object fieldValue) {
-				return createCellStyle();
+				return defaultCellStyle;
 			}
+
 		});
 	}
 	
@@ -402,9 +434,7 @@ public class ExcelWriter {
 		for(int i = 0;i < data.size();i++) {
 			Object rowData = data.get(i);
 			if(currentColumnNum == 0 && offset != 0) {
-				for(int j = 0;j < offset;j++) {
-					write(null);
-				}
+				skip(offset);
 			}
 			for(GridHeader header : headers) {
 				Object dataCellValue;
@@ -431,10 +461,19 @@ public class ExcelWriter {
 		return this;
 	}
 	
-	private void autoSizeColumn() {
+	private void detectAutoSizeColumnIndexes() {
 		if(autoSizeColumn) {
-			for(int i = 0;i < currentSheetMaxColumn;i++) {
-				currentSheet.autoSizeColumn(i);
+			int columnIndex = currentColumnNum - 1;
+			if(!autoSizeColumnIndexes.contains(columnIndex)) {
+				autoSizeColumnIndexes.add(columnIndex);
+			}
+		}
+	}
+	
+	private void autoSizeColumns() {
+		if(autoSizeColumn) {
+			for(int columnIndex : autoSizeColumnIndexes) {
+				currentSheet.autoSizeColumn(columnIndex);
 			}
 		}
 	}
@@ -446,9 +485,6 @@ public class ExcelWriter {
 	 */
 	public ExcelWriter skip(int cellNum) {
 		currentColumnNum = currentColumnNum + cellNum;
-		if(currentColumnNum > currentSheetMaxColumn) {
-			currentSheetMaxColumn = currentColumnNum;
-		}
 		return this;
 	}
 	
@@ -492,17 +528,10 @@ public class ExcelWriter {
 	 * 切换到下一个sheet
 	 * @param name sheet名
 	 */
-	public void nextSheet(String name) {
-		autoSizeColumn();
-		if(name != null) {
-			currentSheet = workbook.createSheet(name);
-		} else {
-			currentSheet = workbook.createSheet();
-		}
-		currentRowNum = 0;
-		currentRow = currentSheet.createRow(currentRowNum);
-		currentColumnNum = 0;
-		currentSheetMaxColumn = 0;
+	public ExcelWriter nextSheet(String name) {
+		autoSizeColumns();
+		initSheet(name);
+		return this;
 	}
 	
 	/**
@@ -511,11 +540,15 @@ public class ExcelWriter {
 	 * @throws IOException
 	 */
 	public void export(OutputStream outputStream) throws IOException {
-		autoSizeColumn();
+		autoSizeColumns();
 		try {
 			workbook.write(outputStream);
 		} finally {
 			workbook.close();
+			if(excelFormat == ExcelFormat.SXSSF) {
+				SXSSFWorkbook wb = (SXSSFWorkbook)workbook;
+				wb.dispose();
+			}
 		}
 	}
 	
@@ -560,7 +593,8 @@ public class ExcelWriter {
 	 */
 	public enum ExcelFormat {
 		HSSF,
-		XSSF
+		XSSF,
+		SXSSF
 	}
 	
 	/**
