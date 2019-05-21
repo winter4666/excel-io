@@ -1,10 +1,10 @@
 package com.github.winter4666.excelio.common;
 
 /**
- * 表格头
+ * 表格列
  * @author wutian
  */
-public class GridHeader {
+public class GridColumn {
 	
 	/**
 	 * 字段名
@@ -26,36 +26,36 @@ public class GridHeader {
 	 */
 	private int cellNum;
 	
-	private GridHeader() {
+	private GridColumn() {
 		
 	}
 	
-	public static GridHeader newInstance(String fieldName) {
-		GridHeader gridHeader = new GridHeader();
-		gridHeader.fieldName = fieldName;
-		gridHeader.cellNum = 1;
-		return gridHeader;
+	public static GridColumn newInstance(String fieldName) {
+		GridColumn gridColumn = new GridColumn();
+		gridColumn.fieldName = fieldName;
+		gridColumn.cellNum = 1;
+		return gridColumn;
 	}
 	
-	public static GridHeader newInstance(String fieldName,String label) {
-		GridHeader gridHeader = new GridHeader();
-		gridHeader.fieldName = fieldName;
-		gridHeader.label = label;
-		gridHeader.cellNum = 1;
-		return gridHeader;
+	public static GridColumn newInstance(String fieldName,String label) {
+		GridColumn gridColumn = new GridColumn();
+		gridColumn.fieldName = fieldName;
+		gridColumn.label = label;
+		gridColumn.cellNum = 1;
+		return gridColumn;
 	}
 	
-	public GridHeader label(String label) {
+	public GridColumn label(String label) {
 		this.label = label;
 		return this;
 	}
 	
-	public GridHeader cellNum(int cellNum) {
+	public GridColumn cellNum(int cellNum) {
 		this.cellNum = cellNum;
 		return this;
 	}
 	
-	public GridHeader fieldValueConverter(FieldValueConverter fieldValueConverter) {
+	public GridColumn fieldValueConverter(FieldValueConverter fieldValueConverter) {
 		this.fieldValueConverter = fieldValueConverter;
 		return this;
 	}

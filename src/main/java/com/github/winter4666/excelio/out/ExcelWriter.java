@@ -28,7 +28,7 @@ import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import com.github.winter4666.excelio.common.GridHeader;
+import com.github.winter4666.excelio.common.GridColumn;
 
 
 /**
@@ -395,8 +395,8 @@ public class ExcelWriter {
 	 * @param data
 	 * @return
 	 */
-	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data) {
-		return writeGrid(headers, data, new GridCellStyle() {
+	public ExcelWriter writeGrid(List<GridColumn> gridColumns, List<?> data) {
+		return writeGrid(gridColumns, data, new GridCellStyle() {
 			
 			@Override
 			public CellStyle getHeaderCellStyle(ExcelWriter excelWriter, String fieldName) {
@@ -419,13 +419,13 @@ public class ExcelWriter {
 	 * @param gridCellStyle 表格样式
 	 */
 	@SuppressWarnings("unchecked")
-	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data,GridCellStyle gridCellStyle) {
+	public ExcelWriter writeGrid(List<GridColumn> gridColumns, List<?> data,GridCellStyle gridCellStyle) {
 		int offset = currentColnum - 0;
 		
 		//写表头
 		if(!ignoreGridHeader) {
-			for(GridHeader header : headers) {
-				write(header.getLabel(), header.getCellNum(), gridCellStyle.getHeaderCellStyle(this, header.getFieldName()));
+			for(GridColumn gridColumn : gridColumns) {
+				write(gridColumn.getLabel(), gridColumn.getCellNum(), gridCellStyle.getHeaderCellStyle(this, gridColumn.getFieldName()));
 			}
 			nextLine();
 		}
@@ -438,23 +438,23 @@ public class ExcelWriter {
 			if(currentColnum == 0 && offset != 0) {
 				skip(offset);
 			}
-			for(GridHeader header : headers) {
+			for(GridColumn gridColumn : gridColumns) {
 				Object dataCellValue;
 				if(rowData instanceof Map) {
-					dataCellValue = ((Map<String,Object>)rowData).get(header.getFieldName());
+					dataCellValue = ((Map<String,Object>)rowData).get(gridColumn.getFieldName());
 				} else {
 					try {
 						Method method = rowData.getClass().getMethod("get" 
-								+ header.getFieldName().substring(0, 1).toUpperCase() + header.getFieldName().substring(1));
+								+ gridColumn.getFieldName().substring(0, 1).toUpperCase() + gridColumn.getFieldName().substring(1));
 						dataCellValue = method.invoke(rowData);
 					} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-						throw new RuntimeException("get value of " + header.getFieldName() + "error", e);
+						throw new RuntimeException("get value of " + gridColumn.getFieldName() + "error", e);
 					}
 				}
-				if(header.getFieldValueConverter() != null) {
-					dataCellValue = header.getFieldValueConverter().convert(dataCellValue,rowData);
+				if(gridColumn.getFieldValueConverter() != null) {
+					dataCellValue = gridColumn.getFieldValueConverter().convert(dataCellValue,rowData);
 				}
-				write(dataCellValue, header.getCellNum(), gridCellStyle.getDataCellStyle(this, header.getFieldName(), i, dataCellValue));
+				write(dataCellValue, gridColumn.getCellNum(), gridCellStyle.getDataCellStyle(this, gridColumn.getFieldName(), i, dataCellValue));
 			}
 			if(i != data.size() - 1) {
 				nextLine();
