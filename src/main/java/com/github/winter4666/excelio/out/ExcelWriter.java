@@ -48,19 +48,19 @@ public class ExcelWriter {
 	private Sheet currentSheet;
 	
 	/**
+	 * 当前正在写的行号，从0开始
+	 */
+	private int currentRownum;
+	
+	/**
+	 * 当前正在写的列号，从0开始
+	 */
+	private int currentColnum;
+	
+	/**
 	 * 当前正在写的行
 	 */
 	private Row currentRow;
-	
-	/**
-	 * 当前正在写的行号
-	 */
-	private int currentRowNum;
-	
-	/**
-	 * 当前正在写的列号
-	 */
-	private int currentColumnNum;
 	
 	/**
 	 * ExcelWriter的默认CellStyle，通过{@link #createCellStyle()}方法创建的CellStyle会默认clone该样式，也是不指定CellStyle的时候程序默认使用的样式。
@@ -125,24 +125,12 @@ public class ExcelWriter {
 		} else {
 			currentSheet = workbook.createSheet();
 		}
-		currentRowNum = 0;
-		currentRow = currentSheet.getRow(currentRowNum);
-		currentColumnNum = 0;
+		location(0, 0);
 		
 		autoSizeColumnIndexes = new HashSet<>();
 		if(autoSizeColumn && excelFormat == ExcelFormat.SXSSF) {
 			((SXSSFSheet)currentSheet).trackAllColumnsForAutoSizing();
 		}
-	}
-	
-	/**
-	 * 得到坐标为(x,y)处的cell的样式
-	 * @param x
-	 * @param y
-	 * @return
-	 */
-	public CellStyle getCellStyle(int x,int y) {
-		return currentSheet.getRow(y).getCell(x).getCellStyle();
 	}
 	
 	/**
@@ -219,7 +207,7 @@ public class ExcelWriter {
 	 * @param height 行高度
 	 */
 	public ExcelWriter setCurrentRowHeight(float height) {
-		currentRow.setHeightInPoints(height);
+		useCurrentRow().setHeightInPoints(height);
 		return this; 
 	}
 	
@@ -258,7 +246,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter setCurrentColumnWidth(int width) {
-		setColumnWidth(currentColumnNum, width);
+		setColumnWidth(currentColnum, width);
 		return this;
 	}
 	
@@ -291,9 +279,6 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter write(Object data,int horizontalCellNum,int verticalCellNum,CellStyle cellStyle) {
-		if(currentRow == null) {
-			currentRow = currentSheet.createRow(currentRowNum);
-		}
 		//处理日期格式
 		if(cellStyle != null && data instanceof Date && cellStyle.getDataFormat() == 0) {
 			cellStyle = getDateCellStyle(cellStyle);
@@ -302,9 +287,9 @@ public class ExcelWriter {
 		//添加横向单元格
 		boolean setValue = false;
 		for(int i = 0;i < horizontalCellNum;i++) {
-			Cell cell = currentRow.getCell(currentColumnNum);
+			Cell cell = useCurrentRow().getCell(currentColnum);
 			if(cell == null) {
-				cell = currentRow.createCell(currentColumnNum);
+				cell = useCurrentRow().createCell(currentColnum);
 			}
 			
 			//设置cell值
@@ -326,22 +311,20 @@ public class ExcelWriter {
 			}
 			cell.setCellStyle(cellStyle);
 			
-			currentColumnNum++;
+			currentColnum++;
 			detectAutoSizeColumnIndexes();
 		}
 		
 		//添加纵向单元格
 		for(int i = 1;i < verticalCellNum;i++) {
-			Row row = null;
-			if(currentSheet.getRow(currentRowNum + i) != null) {
-				row = currentSheet.getRow(currentRowNum + i);
-			} else {
-				row = currentSheet.createRow(currentRowNum + i);
+			Row row = currentSheet.getRow(currentRownum + i);
+			if(row == null) {
+				row = currentSheet.createRow(currentRownum + i);
 			}
 			for(int j = 0;j < horizontalCellNum;j++) {
-				Cell cell = row.getCell(currentColumnNum - horizontalCellNum + j);
+				Cell cell = row.getCell(currentColnum - horizontalCellNum + j);
 				if(cell == null) {
-					cell = row.createCell(currentColumnNum - horizontalCellNum + j);
+					cell = row.createCell(currentColnum - horizontalCellNum + j);
 				}
 				cell.setCellStyle(cellStyle);
 			}
@@ -349,7 +332,7 @@ public class ExcelWriter {
 		
 		//合并
 		if(horizontalCellNum > 1 || verticalCellNum > 1) {
-			currentSheet.addMergedRegion(new CellRangeAddress(currentRowNum, currentRowNum + verticalCellNum - 1, currentColumnNum - horizontalCellNum, currentColumnNum -1));
+			currentSheet.addMergedRegion(new CellRangeAddress(currentRownum, currentRownum + verticalCellNum - 1, currentColnum - horizontalCellNum, currentColnum -1));
 		}
 		return this;
 	}
@@ -437,7 +420,7 @@ public class ExcelWriter {
 	 */
 	@SuppressWarnings("unchecked")
 	public ExcelWriter writeGrid(List<GridHeader> headers, List<?> data,GridCellStyle gridCellStyle) {
-		int offset = currentColumnNum - 0;
+		int offset = currentColnum - 0;
 		
 		//写表头
 		if(!ignoreGridHeader) {
@@ -452,7 +435,7 @@ public class ExcelWriter {
 		//写表格数据
 		for(int i = 0;i < data.size();i++) {
 			Object rowData = data.get(i);
-			if(currentColumnNum == 0 && offset != 0) {
+			if(currentColnum == 0 && offset != 0) {
 				skip(offset);
 			}
 			for(GridHeader header : headers) {
@@ -482,7 +465,7 @@ public class ExcelWriter {
 	
 	private void detectAutoSizeColumnIndexes() {
 		if(autoSizeColumn) {
-			int columnIndex = currentColumnNum - 1;
+			int columnIndex = currentColnum - 1;
 			if(!autoSizeColumnIndexes.contains(columnIndex)) {
 				autoSizeColumnIndexes.add(columnIndex);
 			}
@@ -503,7 +486,29 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter skip(int cellNum) {
-		currentColumnNum = currentColumnNum + cellNum;
+		currentColnum = currentColnum + cellNum;
+		return this;
+	}
+	
+	private Row useCurrentRow() {
+		if(currentRow == null) {
+			currentRow = currentSheet.createRow(currentRownum);
+		}
+		return currentRow;
+	}
+	
+	/**
+	 *  使写Excel的光标直接定位到指定的单元格
+	 * @param rownum row to get (0-based)
+	 * @param colnum 0 based column number
+	 * @return
+	 * @see org.apache.poi.ss.usermodel.Sheet#getRow(int) 
+	 * @see org.apache.poi.ss.usermodel.Row#getCell(int)
+	 */
+	public ExcelWriter location(int rownum,int colnum) {
+		currentRownum = rownum;
+		currentColnum = colnum;
+		currentRow = currentSheet.getRow(currentRownum);
 		return this;
 	}
 	
@@ -513,9 +518,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter nextLine(Float height) {
-		currentRowNum++;
-		currentRow = currentSheet.getRow(currentRowNum);
-		currentColumnNum = 0;
+		location(currentRownum + 1, 0);
 		if(height != null) {
 			setCurrentRowHeight(height);
 		}
@@ -630,7 +633,7 @@ public class ExcelWriter {
 		 * 得到表格数据样式
 		 * @param excelWriter excelWriter
 		 * @param fieldName 字段名称
-		 * @param currentRowNum 所在表格行数，从0开始
+		 * @param currentRownum 所在表格行数，从0开始
 		 * @param fieldValue 字段值
 		 * @return
 		 */
