@@ -126,7 +126,7 @@ public class ExcelWriter {
 			currentSheet = workbook.createSheet();
 		}
 		currentRowNum = 0;
-		currentRow = currentSheet.createRow(currentRowNum);
+		currentRow = currentSheet.getRow(currentRowNum);
 		currentColumnNum = 0;
 		
 		autoSizeColumnIndexes = new HashSet<>();
@@ -291,6 +291,9 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter write(Object data,int horizontalCellNum,int verticalCellNum,CellStyle cellStyle) {
+		if(currentRow == null) {
+			currentRow = currentSheet.createRow(currentRowNum);
+		}
 		//处理日期格式
 		if(cellStyle != null && data instanceof Date && cellStyle.getDataFormat() == 0) {
 			cellStyle = getDateCellStyle(cellStyle);
@@ -299,7 +302,10 @@ public class ExcelWriter {
 		//添加横向单元格
 		boolean setValue = false;
 		for(int i = 0;i < horizontalCellNum;i++) {
-			Cell cell = currentRow.createCell(currentColumnNum);
+			Cell cell = currentRow.getCell(currentColumnNum);
+			if(cell == null) {
+				cell = currentRow.createCell(currentColumnNum);
+			}
 			
 			//设置cell值
 			if(!setValue) {
@@ -333,7 +339,10 @@ public class ExcelWriter {
 				row = currentSheet.createRow(currentRowNum + i);
 			}
 			for(int j = 0;j < horizontalCellNum;j++) {
-				Cell cell = row.createCell(currentColumnNum - horizontalCellNum + j);
+				Cell cell = row.getCell(currentColumnNum - horizontalCellNum + j);
+				if(cell == null) {
+					cell = row.createCell(currentColumnNum - horizontalCellNum + j);
+				}
 				cell.setCellStyle(cellStyle);
 			}
 		}
@@ -376,6 +385,16 @@ public class ExcelWriter {
 	 */
 	public ExcelWriter write(Object data,int cellNum) {
 		return write(data, cellNum, 1);
+	}
+	
+	/**
+	 * 在Excel中写一条数据，自定义样式
+	 * @param data 要写的数据
+	 * @param cellStyle 样式
+	 * @return
+	 */
+	public ExcelWriter write(Object data,CellStyle cellStyle) {
+		return write(data, 1, cellStyle);
 	}
 	
 	/**
@@ -495,11 +514,7 @@ public class ExcelWriter {
 	 */
 	public ExcelWriter nextLine(Float height) {
 		currentRowNum++;
-		if(currentSheet.getRow(currentRowNum) == null) {
-			currentRow = currentSheet.createRow(currentRowNum);
-		} else {
-			currentRow = currentSheet.getRow(currentRowNum);
-		}
+		currentRow = currentSheet.getRow(currentRowNum);
 		currentColumnNum = 0;
 		if(height != null) {
 			setCurrentRowHeight(height);
