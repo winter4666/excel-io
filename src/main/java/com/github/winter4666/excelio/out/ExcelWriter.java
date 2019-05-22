@@ -29,6 +29,9 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.github.winter4666.excelio.common.GridColumn;
+import com.github.winter4666.excelio.out.grid.GridDataLoader;
+import com.github.winter4666.excelio.out.grid.GridDataLoader.GridDataLoaderListener;
+import com.github.winter4666.excelio.out.grid.ListLoader;
 
 
 /**
@@ -391,12 +394,31 @@ public class ExcelWriter {
 	
 	/**
 	 * 在Excel中写一个表格，默认样式
-	 * @param headers
-	 * @param data
+	 * @param gridColumns 表格列信息
+	 * @param data 数据
 	 * @return
 	 */
 	public ExcelWriter writeGrid(List<GridColumn> gridColumns, List<?> data) {
-		return writeGrid(gridColumns, data, new GridCellStyle() {
+		return writeGrid(gridColumns, new ListLoader(data));
+	}
+	
+	/**
+	 * 在Excel中写一个表格，自定义样式
+	 * @param gridColumns 表格列信息
+	 * @param data 数据
+	 * @param gridCellStyle 表格样式
+	 */
+	public ExcelWriter writeGrid(List<GridColumn> gridColumns, List<?> data,GridCellStyle gridCellStyle) {
+		return writeGrid(gridColumns, new ListLoader(data), gridCellStyle);
+	}
+	
+	/**
+	 * 在Excel中写一个表格，默认样式
+	 * @param gridColumns 表格列信息
+	 * @param gridDataLoader 数据加载器
+	 */
+	public ExcelWriter writeGrid(List<GridColumn> gridColumns, GridDataLoader gridDataLoader) {
+		return writeGrid(gridColumns, gridDataLoader, new GridCellStyle() {
 			
 			@Override
 			public CellStyle getHeaderCellStyle(ExcelWriter excelWriter, String fieldName) {
@@ -411,15 +433,15 @@ public class ExcelWriter {
 		});
 	}
 	
-	
 	/**
 	 * 在Excel中写一个表格，自定义样式
-	 * @param headers 表头
-	 * @param data 数据
+	 * @param gridColumns 表格列信息
+	 * @param gridDataLoader 数据加载器
 	 * @param gridCellStyle 表格样式
 	 */
 	@SuppressWarnings("unchecked")
-	public ExcelWriter writeGrid(List<GridColumn> gridColumns, List<?> data,GridCellStyle gridCellStyle) {
+	public ExcelWriter writeGrid(List<GridColumn> gridColumns, GridDataLoader gridDataLoader,GridCellStyle gridCellStyle) {
+		gridDataLoader.loadData();
 		int offset = currentColnum - 0;
 		
 		//写表头
@@ -429,37 +451,36 @@ public class ExcelWriter {
 			}
 			nextLine();
 		}
-		if(data == null) {
-			return this;
-		}
 		//写表格数据
-		for(int i = 0;i < data.size();i++) {
-			Object rowData = data.get(i);
-			if(currentColnum == 0 && offset != 0) {
-				skip(offset);
-			}
-			for(GridColumn gridColumn : gridColumns) {
-				Object dataCellValue;
-				if(rowData instanceof Map) {
-					dataCellValue = ((Map<String,Object>)rowData).get(gridColumn.getFieldName());
-				} else {
-					try {
-						Method method = rowData.getClass().getMethod("get" 
-								+ gridColumn.getFieldName().substring(0, 1).toUpperCase() + gridColumn.getFieldName().substring(1));
-						dataCellValue = method.invoke(rowData);
-					} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-						throw new RuntimeException("get value of " + gridColumn.getFieldName() + "error", e);
+		gridDataLoader.getRowData(new GridDataLoaderListener() {
+			
+			@Override
+			public void onReadRowData(int gridRowNum, Object rowData) {
+				if(currentColnum == 0 && offset != 0) {
+					skip(offset);
+				}
+				for(GridColumn gridColumn : gridColumns) {
+					Object dataCellValue;
+					if(rowData instanceof Map) {
+						dataCellValue = ((Map<String,Object>)rowData).get(gridColumn.getFieldName());
+					} else {
+						try {
+							Method method = rowData.getClass().getMethod("get" 
+									+ gridColumn.getFieldName().substring(0, 1).toUpperCase() + gridColumn.getFieldName().substring(1));
+							dataCellValue = method.invoke(rowData);
+						} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+							throw new RuntimeException("get value of " + gridColumn.getFieldName() + "error", e);
+						}
 					}
+					if(gridColumn.getFieldValueConverter() != null) {
+						dataCellValue = gridColumn.getFieldValueConverter().convert(dataCellValue,rowData);
+					}
+					write(dataCellValue, gridColumn.getCellNum(), 
+							gridCellStyle.getDataCellStyle(ExcelWriter.this, gridColumn.getFieldName(), gridRowNum, dataCellValue));
 				}
-				if(gridColumn.getFieldValueConverter() != null) {
-					dataCellValue = gridColumn.getFieldValueConverter().convert(dataCellValue,rowData);
-				}
-				write(dataCellValue, gridColumn.getCellNum(), gridCellStyle.getDataCellStyle(this, gridColumn.getFieldName(), i, dataCellValue));
-			}
-			if(i != data.size() - 1) {
 				nextLine();
 			}
-		}
+		});
 		return this;
 	}
 	
