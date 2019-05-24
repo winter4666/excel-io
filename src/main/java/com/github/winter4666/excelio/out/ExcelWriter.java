@@ -84,6 +84,8 @@ public class ExcelWriter {
 	
 	private boolean ignoreGridHeader;
 	
+	private boolean merged;
+	
 	private Map<CellStyle, CellStyle> dateCellStyleTemp = new HashMap<>();
 	
 	/**
@@ -128,6 +130,7 @@ public class ExcelWriter {
 		} else {
 			currentSheet = workbook.createSheet();
 		}
+		merged = false;
 		location(0, 0);
 		
 		autoSizeColumnIndexes = new HashSet<>();
@@ -166,6 +169,9 @@ public class ExcelWriter {
 	 * @param lastCol 结束列
 	 */
 	public void mergeCells(int firstRow,int lastRow,int firstCol,int lastCol) {
+		if(!merged) {
+			merged = true;
+		}
 		currentSheet.addMergedRegion(new CellRangeAddress(firstRow, lastRow, firstCol, lastCol));
 	}
 	
@@ -335,7 +341,7 @@ public class ExcelWriter {
 		
 		//合并
 		if(horizontalCellNum > 1 || verticalCellNum > 1) {
-			currentSheet.addMergedRegion(new CellRangeAddress(currentRownum, currentRownum + verticalCellNum - 1, currentColnum - horizontalCellNum, currentColnum -1));
+			mergeCells(currentRownum, currentRownum + verticalCellNum - 1, currentColnum - horizontalCellNum, currentColnum -1);
 		}
 		return this;
 	}
@@ -496,7 +502,7 @@ public class ExcelWriter {
 	private void autoSizeColumns() {
 		if(autoSizeColumn) {
 			for(int columnIndex : autoSizeColumnIndexes) {
-				currentSheet.autoSizeColumn(columnIndex);
+				currentSheet.autoSizeColumn(columnIndex,merged);
 			}
 		}
 	}

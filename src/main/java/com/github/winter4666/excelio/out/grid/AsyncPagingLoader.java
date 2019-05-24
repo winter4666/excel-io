@@ -33,17 +33,17 @@ public class AsyncPagingLoader implements GridDataLoader {
 	 * @param gridDataSource 数据源
 	 */
 	public AsyncPagingLoader(GridDataSource<?> gridDataSource) {
-		this(500, gridDataSource);
+		this(gridDataSource,500);
 	}
 	
 	/**
 	 * 构造异步分页加载器
-	 * @param pageSize 一次加载数据的条数
 	 * @param gridDataSource 数据源
+	 * @param pageSize 一次加载数据的条数
 	 */
-	public AsyncPagingLoader(int pageSize,GridDataSource<?> gridDataSource) {
-		this.pageSize = pageSize;
+	public AsyncPagingLoader(GridDataSource<?> gridDataSource,int pageSize) {
 		this.gridDataSource = gridDataSource;
+		this.pageSize = pageSize;
 	}
 	
 	@Override
@@ -118,7 +118,7 @@ public class AsyncPagingLoader implements GridDataLoader {
 	 * 致命药丸
 	 * @author wutian
 	 */
-	static class PoisonPill {
+	private static class PoisonPill {
 		
 		private Throwable t;
 		

@@ -54,6 +54,7 @@ public class ExcelWriterBuilder {
 	/**
 	 * 根据内容自动调整excel列宽度，默认关闭
 	 * @return
+	 * @see org.apache.poi.ss.usermodel.Sheet#autoSizeColumn(int)
 	 */
 	public ExcelWriterBuilder enableAutoSizeColumn() {
 		autoSizeColumn = true;
