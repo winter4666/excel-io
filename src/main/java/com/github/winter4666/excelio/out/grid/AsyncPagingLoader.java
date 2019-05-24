@@ -29,11 +29,11 @@ public class AsyncPagingLoader implements GridDataLoader {
 	private Thread thread;
 	
 	/**
-	 * 构造异步分页加载器，默认一次加载500条数据
+	 * 构造异步分页加载器，默认一次加载1000条数据
 	 * @param gridDataSource 数据源
 	 */
 	public AsyncPagingLoader(GridDataSource<?> gridDataSource) {
-		this(gridDataSource,500);
+		this(gridDataSource,1000);
 	}
 	
 	/**
