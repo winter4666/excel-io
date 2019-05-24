@@ -80,11 +80,14 @@ public class ExcelWriter {
 	 */
 	private Set<Integer> autoSizeColumnIndexes;
 	
+	/**
+	 * 发生过合并的ColumnIndex
+	 */
+	private Set<Integer> mergedColumnIndexes;
+	
 	private CreationHelper creationHelper;
 	
 	private boolean ignoreGridHeader;
-	
-	private boolean merged;
 	
 	private Map<CellStyle, CellStyle> dateCellStyleTemp = new HashMap<>();
 	
@@ -130,7 +133,7 @@ public class ExcelWriter {
 		} else {
 			currentSheet = workbook.createSheet();
 		}
-		merged = false;
+		mergedColumnIndexes = new HashSet<>();
 		location(0, 0);
 		
 		autoSizeColumnIndexes = new HashSet<>();
@@ -169,8 +172,10 @@ public class ExcelWriter {
 	 * @param lastCol 结束列
 	 */
 	public void mergeCells(int firstRow,int lastRow,int firstCol,int lastCol) {
-		if(!merged) {
-			merged = true;
+		for(int columnIndex = firstCol;columnIndex <= lastCol;columnIndex++) {
+			if(!mergedColumnIndexes.contains(columnIndex)) {
+				mergedColumnIndexes.add(columnIndex);
+			}
 		}
 		currentSheet.addMergedRegion(new CellRangeAddress(firstRow, lastRow, firstCol, lastCol));
 	}
@@ -191,6 +196,22 @@ public class ExcelWriter {
 		return creationHelper;
 	}
 	
+	/**
+	 * 当前正在写的行号，从0开始
+	 * @return
+	 */
+	public int getCurrentRownum() {
+		return currentRownum;
+	}
+	
+	/**
+	 * 得到当前正在写的列号，从0开始
+	 * @return
+	 */
+	public int getCurrentColnum() {
+		return currentColnum;
+	}
+
 	/**
 	 * 设置日期格式，默认yyyy-MM-dd HH:mm:ss
 	 * @param dateFormat
@@ -502,7 +523,7 @@ public class ExcelWriter {
 	private void autoSizeColumns() {
 		if(autoSizeColumn) {
 			for(int columnIndex : autoSizeColumnIndexes) {
-				currentSheet.autoSizeColumn(columnIndex,merged);
+				currentSheet.autoSizeColumn(columnIndex,mergedColumnIndexes.contains(columnIndex));
 			}
 		}
 	}
