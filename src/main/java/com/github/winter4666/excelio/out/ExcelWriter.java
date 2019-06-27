@@ -181,6 +181,14 @@ public class ExcelWriter {
 	}
 	
 	/**
+	 * 得到当前正在写的excel格式
+	 * @return
+	 */
+	public ExcelFormat getExcelFormat() {
+		return excelFormat;
+	}
+	
+	/**
 	 * 得到当前正在写的sheet
 	 * @return
 	 */
