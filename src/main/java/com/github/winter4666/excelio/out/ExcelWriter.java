@@ -119,11 +119,7 @@ public class ExcelWriter {
 		dateFormat = "yyyy-MM-dd HH:mm:ss";
 		ignoreGridHeader = false;
 		
-		defaultCellStyle = workbook.createCellStyle();
-		Font font = workbook.createFont();
-		font.setFontName("宋体");
-		defaultCellStyle.setFont(font);
-		defaultCellStyle.setWrapText(true);
+		defaultCellStyle = createCellStyle();
 	}
 	
 	void initSheet(String sheetName) {
@@ -147,13 +143,20 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public CellStyle createCellStyle() {
-		if(defaultCellStyle != null) {
-			CellStyle cellStyle = workbook.createCellStyle();
-			cellStyle.cloneStyleFrom(defaultCellStyle);
-			return cellStyle;
-		} else {
-			return workbook.createCellStyle();
-		}
+		CellStyle cellStyle = workbook.createCellStyle();
+		cellStyle.setFont(createFont());
+		cellStyle.setWrapText(true);
+		return cellStyle;
+	}
+	
+	/**
+	 * 从默认样式中复制出一个样式
+	 * @return
+	 */
+	public CellStyle cloneDefaultCellStyle() {
+		CellStyle cellStyle = workbook.createCellStyle();
+		cellStyle.cloneStyleFrom(defaultCellStyle);
+		return cellStyle;
 	}
 	
 	/**
@@ -161,7 +164,9 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public Font createFont() {
-		return workbook.createFont();
+		Font font = workbook.createFont();
+		font.setFontName("宋体");
+		return font;
 	}
 	
 	/**
