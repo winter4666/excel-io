@@ -66,7 +66,7 @@ public class ExcelWriter {
 	private Row currentRow;
 	
 	/**
-	 * ExcelWriter的默认CellStyle，通过{@link #createCellStyle()}方法创建的CellStyle会默认clone该样式，也是不指定CellStyle的时候程序默认使用的样式。
+	 * ExcelWriter的默认CellStyle，不指定CellStyle的时候程序默认使用的样式。
 	 */
 	private CellStyle defaultCellStyle;
 	
