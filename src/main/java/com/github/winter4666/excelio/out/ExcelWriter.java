@@ -58,7 +58,7 @@ public class ExcelWriter {
 	/**
 	 * 当前正在写的列号，从0开始
 	 */
-	private int currentColnum;
+	private int currentColumn;
 	
 	/**
 	 * 当前正在写的行
@@ -222,7 +222,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public int getCurrentColnum() {
-		return currentColnum;
+		return currentColumn;
 	}
 
 	/**
@@ -289,7 +289,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter setCurrentColumnWidth(int width) {
-		setColumnWidth(currentColnum, width);
+		setColumnWidth(currentColumn, width);
 		return this;
 	}
 	
@@ -330,9 +330,9 @@ public class ExcelWriter {
 		//添加横向单元格
 		boolean setValue = false;
 		for(int i = 0;i < horizontalCellNum;i++) {
-			Cell cell = useCurrentRow().getCell(currentColnum);
+			Cell cell = useCurrentRow().getCell(currentColumn);
 			if(cell == null) {
-				cell = useCurrentRow().createCell(currentColnum);
+				cell = useCurrentRow().createCell(currentColumn);
 			}
 			
 			//设置cell值
@@ -354,7 +354,7 @@ public class ExcelWriter {
 			}
 			cell.setCellStyle(cellStyle);
 			
-			currentColnum++;
+			currentColumn++;
 			detectAutoSizeColumnIndexes();
 		}
 		
@@ -365,9 +365,9 @@ public class ExcelWriter {
 				row = currentSheet.createRow(currentRownum + i);
 			}
 			for(int j = 0;j < horizontalCellNum;j++) {
-				Cell cell = row.getCell(currentColnum - horizontalCellNum + j);
+				Cell cell = row.getCell(currentColumn - horizontalCellNum + j);
 				if(cell == null) {
-					cell = row.createCell(currentColnum - horizontalCellNum + j);
+					cell = row.createCell(currentColumn - horizontalCellNum + j);
 				}
 				cell.setCellStyle(cellStyle);
 			}
@@ -375,7 +375,7 @@ public class ExcelWriter {
 		
 		//合并
 		if(horizontalCellNum > 1 || verticalCellNum > 1) {
-			mergeCells(currentRownum, currentRownum + verticalCellNum - 1, currentColnum - horizontalCellNum, currentColnum -1);
+			mergeCells(currentRownum, currentRownum + verticalCellNum - 1, currentColumn - horizontalCellNum, currentColumn -1);
 		}
 		return this;
 	}
@@ -482,7 +482,7 @@ public class ExcelWriter {
 	@SuppressWarnings("unchecked")
 	public ExcelWriter writeGrid(List<GridColumn> gridColumns, GridDataLoader gridDataLoader,GridCellStyle gridCellStyle) {
 		gridDataLoader.loadData();
-		int offset = currentColnum - 0;
+		int offset = currentColumn - 0;
 		
 		//写表头
 		if(!ignoreGridHeader) {
@@ -496,7 +496,7 @@ public class ExcelWriter {
 			
 			@Override
 			public void onReadRowData(int gridRowNum, Object rowData) {
-				if(currentColnum == 0 && offset != 0) {
+				if(currentColumn == 0 && offset != 0) {
 					skip(offset);
 				}
 				for(GridColumn gridColumn : gridColumns) {
@@ -526,7 +526,7 @@ public class ExcelWriter {
 	
 	private void detectAutoSizeColumnIndexes() {
 		if(autoSizeColumn) {
-			int columnIndex = currentColnum - 1;
+			int columnIndex = currentColumn - 1;
 			if(!autoSizeColumnIndexes.contains(columnIndex)) {
 				autoSizeColumnIndexes.add(columnIndex);
 			}
@@ -547,7 +547,7 @@ public class ExcelWriter {
 	 * @return
 	 */
 	public ExcelWriter skip(int cellNum) {
-		currentColnum = currentColnum + cellNum;
+		currentColumn = currentColumn + cellNum;
 		return this;
 	}
 	
@@ -568,7 +568,7 @@ public class ExcelWriter {
 	 */
 	public ExcelWriter location(int rownum,int colnum) {
 		currentRownum = rownum;
-		currentColnum = colnum;
+		currentColumn = colnum;
 		currentRow = currentSheet.getRow(currentRownum);
 		return this;
 	}
